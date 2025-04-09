@@ -19,13 +19,12 @@ const FeedScreen: React.FC<Props> = ({ navigation }) => {
   const [characters, setCharacters] = useState([] as Character[]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [refreshing, setRefreshing] = useState(false);
   const netInfo = useNetInfo();
-
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setTimeout(async () => {
         if (netInfo.isConnected) {
           try {
             const data = await getCharacters();
@@ -43,7 +42,6 @@ const FeedScreen: React.FC<Props> = ({ navigation }) => {
           );
         }
         setLoading(false);
-      }, 10000);
     };
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,11 +49,14 @@ const FeedScreen: React.FC<Props> = ({ navigation }) => {
 
 
   const handleLoadOfflineCharacters = async () => {
-    const allKeys = await AsyncStorage.getAllKeys();
-    const characterKeys = allKeys.filter((key) => key.startsWith('@character_'));
-    const savedItems = await AsyncStorage.multiGet(characterKeys);
-    const charactersOffline = savedItems.map(([, value]) => JSON.parse(value || '{}'));
-    setCharacters(charactersOffline);
+   if (!netInfo.isConnected) {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const characterKeys = allKeys.filter((key) => key.startsWith('@character_'));
+      const savedItems = await AsyncStorage.multiGet(characterKeys);
+      const charactersOffline = savedItems.map(([, value]) => JSON.parse(value || '{}'));
+      setCharacters(charactersOffline);
+      setLoading(false);
+    }
   };
   const fetchCharacters = async () => {
     const data = await getCharacters();
@@ -63,6 +64,12 @@ const FeedScreen: React.FC<Props> = ({ navigation }) => {
     setPage((prev) => prev + 1);
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    const data = await getCharacters();
+    setCharacters(data);
+    setRefreshing(false);
+  };
   return (
     <SafeAreaView style={styles.container}>
       {loading && <View  style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.secondary} /></View>}
@@ -77,6 +84,8 @@ const FeedScreen: React.FC<Props> = ({ navigation }) => {
           );
         }}
         numColumns={2}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         onEndReached={fetchCharacters}
         onEndReachedThreshold={0.5}
       />
